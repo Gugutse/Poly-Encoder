@@ -93,6 +93,7 @@ class SelectionDataset(Dataset):
             contexts_token_ids_list_batch, contexts_input_masks_list_batch, \
             responses_token_ids_list_batch, responses_input_masks_list_batch = [], [], [], []
             labels_batch = []
+            logits_batch = []
             for sample in batch:
                 (contexts_token_ids_list, contexts_input_masks_list), (responses_token_ids_list, responses_input_masks_list) = sample[:2]
 
@@ -101,8 +102,12 @@ class SelectionDataset(Dataset):
 
                 responses_token_ids_list_batch.append(responses_token_ids_list)
                 responses_input_masks_list_batch.append(responses_input_masks_list)
-
-                labels_batch.append(sample[-1])
+                
+                if self.dist:
+                    labels_batch.append(sample[-2])
+                    logits_batch.append(sample[-1])
+                else:
+                    labels_batch.append(sample[-1])
 
             long_tensors = [contexts_token_ids_list_batch, contexts_input_masks_list_batch,
                                             responses_token_ids_list_batch, responses_input_masks_list_batch]
@@ -110,7 +115,13 @@ class SelectionDataset(Dataset):
             contexts_token_ids_list_batch, contexts_input_masks_list_batch, \
             responses_token_ids_list_batch, responses_input_masks_list_batch = (
                 torch.tensor(t, dtype=torch.long) for t in long_tensors)
-
+  
             labels_batch = torch.tensor(labels_batch, dtype=torch.long)
-            return contexts_token_ids_list_batch, contexts_input_masks_list_batch, \
+            
+            if self.dist:
+                logits_batch = torch.tensor(logits_batch, dtype=torch.float)
+                return contexts_token_ids_list_batch, contexts_input_masks_list_batch, \
+                          responses_token_ids_list_batch, responses_input_masks_list_batch, labels_batch, logits_batch
+            else:
+                return contexts_token_ids_list_batch, contexts_input_masks_list_batch, \
                           responses_token_ids_list_batch, responses_input_masks_list_batch, labels_batch
