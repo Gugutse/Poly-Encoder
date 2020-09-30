@@ -255,13 +255,23 @@ if __name__ == '__main__':
                 model.train()
                 optimizer.zero_grad()
                 batch = tuple(t.to(device) for t in batch)
-                if args.architecture == 'cross':
-                    text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch = batch
-                    loss = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch)
-                else:
+                
+                if args.distillation:
                     context_token_ids_list_batch, context_input_masks_list_batch, \
-                    response_token_ids_list_batch, response_input_masks_list_batch, labels_batch = batch
+                    response_token_ids_list_batch, response_input_masks_list_batch, labels_batch, logits_batch = batch
                     loss = model(context_token_ids_list_batch, context_input_masks_list_batch,
+                                          response_token_ids_list_batch, response_input_masks_list_batch,
+                                          labels_batch, logits_batch)
+                    
+                else:
+                    if args.architecture == 'cross':
+                        text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch = batch
+                        loss = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch)
+                    
+                    else:
+                        context_token_ids_list_batch, context_input_masks_list_batch, \
+                        response_token_ids_list_batch, response_input_masks_list_batch, labels_batch = batch
+                        loss = model(context_token_ids_list_batch, context_input_masks_list_batch,
                                           response_token_ids_list_batch, response_input_masks_list_batch,
                                           labels_batch)
 
