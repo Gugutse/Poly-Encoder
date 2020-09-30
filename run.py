@@ -163,14 +163,14 @@ if __name__ == '__main__':
 
     if not args.eval:
         train_dataset = SelectionDataset(os.path.join(args.train_dir, 'train.txt'),
-                                                                      context_transform, response_transform, concat_transform, sample_cnt=None, mode=args.architecture)
+                                                                      context_transform, response_transform, concat_transform, sample_cnt=None, mode=args.architecture, dist=args.distillation)
         val_dataset = SelectionDataset(os.path.join(args.train_dir, 'dev.txt'),
-                                                                  context_transform, response_transform, concat_transform, sample_cnt=1000, mode=args.architecture)
+                                                                  context_transform, response_transform, concat_transform, sample_cnt=1000, mode=args.architecture, dist=False)
         train_dataloader = DataLoader(train_dataset, batch_size=args.train_batch_size, collate_fn=train_dataset.batchify_join_str, shuffle=True, num_workers=0)
         t_total = len(train_dataloader) // args.gradient_accumulation_steps * args.num_train_epochs
     else: # test
         val_dataset = SelectionDataset(os.path.join(args.train_dir, 'test.txt'),
-                                                                  context_transform, response_transform, concat_transform, sample_cnt=None, mode=args.architecture)
+                                                                  context_transform, response_transform, concat_transform, sample_cnt=None, mode=args.architecture, dist=False)
 
     val_dataloader = DataLoader(val_dataset, batch_size=args.eval_batch_size, collate_fn=val_dataset.batchify_join_str, shuffle=False, num_workers=0)
 
