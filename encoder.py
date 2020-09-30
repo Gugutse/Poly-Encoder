@@ -24,7 +24,7 @@ class BiEncoder(BertPreTrainedModel):
         self.bert = kwargs['bert']
 
     def forward(self, context_input_ids, context_input_masks,
-                            responses_input_ids, responses_input_masks, labels=None):
+                            responses_input_ids, responses_input_masks, labels=None, logits=None):
         ## only select the first response (whose lbl==1)
         if labels is not None:
             responses_input_ids = responses_input_ids[:, 0, :].unsqueeze(1)
@@ -37,19 +37,29 @@ class BiEncoder(BertPreTrainedModel):
         responses_input_masks = responses_input_masks.view(-1, seq_length)
 
         responses_vec = self.bert(responses_input_ids, responses_input_masks)[0][:,0,:]  # [bs,dim]
-        responses_vec = responses_vec.view(batch_size, res_cnt, -1)
-
-        if labels is not None:
-            responses_vec = responses_vec.squeeze(1)
-            dot_product = torch.matmul(context_vec, responses_vec.t())  # [bs, bs]
-            mask = torch.eye(context_input_ids.size(0)).to(context_input_ids.device)
-            loss = F.log_softmax(dot_product, dim=-1) * mask
-            loss = (-loss.sum(dim=1)).mean()
+        
+        
+        if logits is not None:
+            similarity = (context_vec * responses_vec).sum(dim=1).unsqueeze(-1)
+            linear = nn.Linear(1,2)
+            pred = linear(similarity)
+            distillation_criterion = DistillationLoss(temperature=1.)
+            loss = distillation_criterion(pred, logits)
             return loss
+        
         else:
-            context_vec = context_vec.unsqueeze(1)
-            dot_product = torch.matmul(context_vec, responses_vec.permute(0, 2, 1)).squeeze()
-            return dot_product
+            responses_vec = responses_vec.view(batch_size, res_cnt, -1)
+            if labels is not None:
+                responses_vec = responses_vec.squeeze(1)
+                dot_product = torch.matmul(context_vec, responses_vec.t())  # [bs, bs]
+                mask = torch.eye(context_input_ids.size(0)).to(context_input_ids.device)
+                loss = F.log_softmax(dot_product, dim=-1) * mask
+                loss = (-loss.sum(dim=1)).mean()
+                return loss
+            else:
+                context_vec = context_vec.unsqueeze(1)
+                dot_product = torch.matmul(context_vec, responses_vec.permute(0, 2, 1)).squeeze()
+                return dot_product
 
 
 class CrossEncoder(BertPreTrainedModel):
