@@ -106,6 +106,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--use_pretrain", action="store_true")
     parser.add_argument("--architecture", required=True, type=str, help='[poly, bi, cross]')
+    parser.add_argument("--distillation", action="store_true")
 
     parser.add_argument("--max_contexts_length", default=128, type=int)
     parser.add_argument("--max_response_length", default=32, type=int)
