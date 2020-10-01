@@ -40,9 +40,11 @@ class BiEncoder(BertPreTrainedModel):
         
         
         if logits is not None:
+            print(logits)
             similarity = (context_vec * responses_vec).sum(dim=1).unsqueeze(-1)
             linear = nn.Linear(1,2)
             pred = linear(similarity)
+            print(pred)
             distillation_criterion = DistillationLoss(temperature=1.)
             loss = distillation_criterion(pred, logits)
             return loss
