@@ -22,6 +22,7 @@ class BiEncoder(BertPreTrainedModel):
     def __init__(self, config, *inputs, **kwargs):
         super().__init__(config, *inputs, **kwargs)
         self.bert = kwargs['bert']
+        self.linear = nn.Linear(1,2)
 
     def forward(self, context_input_ids, context_input_masks,
                             responses_input_ids, responses_input_masks, labels=None, logits=None):
@@ -40,11 +41,10 @@ class BiEncoder(BertPreTrainedModel):
         
         
         if logits is not None:
-            print(logits)
+            logits = logits[:, 0, :]
             similarity = (context_vec * responses_vec).sum(dim=1).unsqueeze(-1)
-            linear = nn.Linear(1,2)
-            pred = linear(similarity)
-            print(pred)
+            pred = self.linear(similarity)
+            #print(pred)
             distillation_criterion = DistillationLoss(temperature=1.)
             loss = distillation_criterion(pred, logits)
             return loss
