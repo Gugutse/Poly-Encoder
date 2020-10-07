@@ -13,7 +13,7 @@ from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from transformers import BertModel, BertConfig, BertTokenizer, BertTokenizerFast
+from transformers import BertModel, BertConfig, BertTokenizer, BertTokenizerFast, BertForSequenceClassification
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
 
 from dataset import SelectionDataset
@@ -144,12 +144,12 @@ if __name__ == '__main__':
     set_seed(args)
 
     MODEL_CLASSES = {
-        'bert': (BertConfig, BertTokenizerFast, BertModel),
+        'bert': (BertConfig, BertTokenizer, BertForSequenceClassification),
     }
     ConfigClass, TokenizerClass, BertModelClass = MODEL_CLASSES[args.model_type]
 
     ## init dataset and bert model
-    tokenizer = TokenizerClass.from_pretrained(os.path.join(args.bert_model, "vocab.txt"), do_lower_case=True, clean_text=False)
+    tokenizer = TokenizerClass.from_pretrained('bert-base-cased')
     context_transform = SelectionJoinTransform(tokenizer=tokenizer, max_len=args.max_contexts_length)
     response_transform = SelectionSequentialTransform(tokenizer=tokenizer, max_len=args.max_response_length)
     concat_transform = SelectionConcatTransform(tokenizer=tokenizer, max_len=args.max_response_length+args.max_contexts_length)
@@ -200,7 +200,7 @@ if __name__ == '__main__':
         bert = BertModelClass.from_pretrained(args.bert_model, state_dict=model_state_dict)
         del model_state_dict
     else:
-        bert = BertModelClass(bert_config)
+        bert = BertModelClass.from_pretrained('bert-based-cased')
 
     if args.architecture == 'poly':
         model = PolyEncoder(bert_config, bert=bert, poly_m=args.poly_m)
