@@ -40,25 +40,24 @@ class BiEncoder(BertPreTrainedModel):
             return dot_product
 
 
-class CrossEncoder(BertPreTrainedModel):
-    def __init__(self, config, *inputs, **kwargs):
-        super().__init__(config, *inputs, **kwargs)
-        self.bert = kwargs['bert']
-        self.linear = nn.Linear(config.hidden_size, 1)
-
+class CrossEncoder():
+    def __init__(self, model, criterion):
+        self.model = model
+        self.criterion = criterion
+        
     def forward(self, text_input_ids, text_input_masks, text_input_segments, labels=None):
         batch_size, neg, dim = text_input_ids.shape
         text_input_ids = text_input_ids.reshape(-1, dim)
         text_input_masks = text_input_masks.reshape(-1, dim)
         text_input_segments = text_input_segments.reshape(-1, dim)
-        text_vec = self.bert(text_input_ids, text_input_masks, text_input_segments)[0][:,0,:]  # [bs,dim]
-        score = self.linear(text_vec)
-        score = score.view(-1, neg)
+        prediction = self.model(text_input_ids, text_input_masks, text_input_segments)[0]
+        
         if labels is not None:
-            loss = -F.log_softmax(score, -1)[:,0].mean()
+            labels = labels.view(-1)
+            loss = self.criterion(prediction, labels)
             return loss
         else:
-            return score
+            return prediction
 
 
 class PolyEncoder(BertPreTrainedModel):
