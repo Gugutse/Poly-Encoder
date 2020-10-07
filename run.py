@@ -50,7 +50,7 @@ def eval_running_model(dataloader, test=False):
                 logits = model(context_token_ids_list_batch, context_input_masks_list_batch,
                                               response_token_ids_list_batch, response_input_masks_list_batch)
                 loss = F.cross_entropy(logits, torch.argmax(labels_batch, 1))
-        logits_size = logits.shape
+
         r2_indices = torch.topk(logits, 2)[1] # R 2 @ 100
         r5_indices = torch.topk(logits, 5)[1] # R 5 @ 100
         r10_indices = torch.topk(logits, 10)[1] # R 10 @ 100
@@ -71,7 +71,6 @@ def eval_running_model(dataloader, test=False):
     eval_accuracy = r1 / nb_eval_examples
     if not test:
         result = {
-            'l_size': logits_size,
             'train_loss': tr_loss / nb_tr_steps,
             'eval_loss': eval_loss,
             'R1': r1 / nb_eval_examples,
@@ -106,7 +105,6 @@ if __name__ == '__main__':
 
     parser.add_argument("--use_pretrain", action="store_true")
     parser.add_argument("--architecture", required=True, type=str, help='[poly, bi, cross]')
-    parser.add_argument("--distillation", action="store_true")
 
     parser.add_argument("--max_contexts_length", default=128, type=int)
     parser.add_argument("--max_response_length", default=32, type=int)
@@ -163,14 +161,14 @@ if __name__ == '__main__':
 
     if not args.eval:
         train_dataset = SelectionDataset(os.path.join(args.train_dir, 'train.txt'),
-                                                                      context_transform, response_transform, concat_transform, sample_cnt=None, mode=args.architecture, dist=args.distillation)
+                                                                      context_transform, response_transform, concat_transform, sample_cnt=None, mode=args.architecture)
         val_dataset = SelectionDataset(os.path.join(args.train_dir, 'dev.txt'),
-                                                                  context_transform, response_transform, concat_transform, sample_cnt=1000, mode=args.architecture, dist=False)
+                                                                  context_transform, response_transform, concat_transform, sample_cnt=1000, mode=args.architecture)
         train_dataloader = DataLoader(train_dataset, batch_size=args.train_batch_size, collate_fn=train_dataset.batchify_join_str, shuffle=True, num_workers=0)
         t_total = len(train_dataloader) // args.gradient_accumulation_steps * args.num_train_epochs
     else: # test
         val_dataset = SelectionDataset(os.path.join(args.train_dir, 'test.txt'),
-                                                                  context_transform, response_transform, concat_transform, sample_cnt=None, mode=args.architecture, dist=False)
+                                                                  context_transform, response_transform, concat_transform, sample_cnt=None, mode=args.architecture)
 
     val_dataloader = DataLoader(val_dataset, batch_size=args.eval_batch_size, collate_fn=val_dataset.batchify_join_str, shuffle=False, num_workers=0)
 
@@ -256,19 +254,11 @@ if __name__ == '__main__':
                 optimizer.zero_grad()
                 batch = tuple(t.to(device) for t in batch)
                 
-                if args.distillation:
-                    context_token_ids_list_batch, context_input_masks_list_batch, \
-                    response_token_ids_list_batch, response_input_masks_list_batch, labels_batch, logits_batch = batch
-                    loss = model(context_token_ids_list_batch, context_input_masks_list_batch,
-                                          response_token_ids_list_batch, response_input_masks_list_batch,
-                                          labels_batch, logits_batch)
-                    
-                else:
-                    if args.architecture == 'cross':
+                if args.architecture == 'cross':
                         text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch = batch
                         loss = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch)
                     
-                    else:
+                else:
                         context_token_ids_list_batch, context_input_masks_list_batch, \
                         response_token_ids_list_batch, response_input_masks_list_batch, labels_batch = batch
                         loss = model(context_token_ids_list_batch, context_input_masks_list_batch,
