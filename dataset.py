@@ -7,35 +7,29 @@ import pickle
 
 
 class SelectionDataset(Dataset):
-    def __init__(self, file_path, context_transform, response_transform, concat_transform, sample_cnt=None, mode='poly', dist=False):
+    def __init__(self, file_path, context_transform, response_transform, concat_transform, sample_cnt=None, mode='poly'):
         self.context_transform = context_transform
         self.response_transform = response_transform
         self.concat_transform = concat_transform
         self.data_source = []
         self.mode = mode
-        self.dist = dist
         
         neg_responses = []
         with open(file_path, encoding='utf-8') as f:
             group = {
                 'context': None,
                 'responses': [],
-                'labels': [],
-                'logits': []
+                'labels': []
             }
             for line in f:
                 split = line.strip().split('\t')
-                if self.dist:
-                    logits, lbl, context, response = [float(split[0]), float(split[1])], int(split[2]), split[3:-1], split[-1]
-                else:
-                    lbl, context, response = int(split[0]), split[1:-1], split[-1]
+                lbl, context, response = int(split[0]), split[1:-1], split[-1]
                 if lbl == 1 and len(group['responses']) > 0:
                     self.data_source.append(group)
                     group = {
                         'context': None,
                         'responses': [],
-                        'labels': [],
-                        'logits': []
+                        'labels': []
                     }
                     if sample_cnt is not None and len(self.data_source) >= sample_cnt:
                         break
@@ -44,8 +38,6 @@ class SelectionDataset(Dataset):
                 group['responses'].append(response)
                 group['labels'].append(lbl)
                 group['context'] = context
-                if self.dist:
-                    group['logits'].append(logits)
             if len(group['responses']) > 0:
                 self.data_source.append(group)
 
@@ -54,17 +46,14 @@ class SelectionDataset(Dataset):
 
     def __getitem__(self, index):
         group = self.data_source[index]
-        context, responses, labels, logits = group['context'], group['responses'], group['labels'], group['logits']
+        context, responses, labels = group['context'], group['responses'], group['labels']
         if self.mode == 'cross':
             transformed_text = self.concat_transform(context, responses)
             ret = transformed_text, labels
         else:
             transformed_context = self.context_transform(context)  # [token_ids],[seg_ids],[masks]
             transformed_responses = self.response_transform(responses)  # [token_ids],[seg_ids],[masks]
-            if self.dist:
-                ret = transformed_context, transformed_responses, labels, logits
-            else:
-                ret = transformed_context, transformed_responses, labels
+            ret = transformed_context, transformed_responses, labels
 
         return ret
 
@@ -93,7 +82,6 @@ class SelectionDataset(Dataset):
             contexts_token_ids_list_batch, contexts_input_masks_list_batch, \
             responses_token_ids_list_batch, responses_input_masks_list_batch = [], [], [], []
             labels_batch = []
-            logits_batch = []
             for sample in batch:
                 (contexts_token_ids_list, contexts_input_masks_list), (responses_token_ids_list, responses_input_masks_list) = sample[:2]
 
@@ -103,11 +91,7 @@ class SelectionDataset(Dataset):
                 responses_token_ids_list_batch.append(responses_token_ids_list)
                 responses_input_masks_list_batch.append(responses_input_masks_list)
                 
-                if self.dist:
-                    labels_batch.append(sample[-2])
-                    logits_batch.append(sample[-1])
-                else:
-                    labels_batch.append(sample[-1])
+                labels_batch.append(sample[-1])
 
             long_tensors = [contexts_token_ids_list_batch, contexts_input_masks_list_batch,
                                             responses_token_ids_list_batch, responses_input_masks_list_batch]
@@ -118,10 +102,5 @@ class SelectionDataset(Dataset):
   
             labels_batch = torch.tensor(labels_batch, dtype=torch.long)
             
-            if self.dist:
-                logits_batch = torch.tensor(logits_batch, dtype=torch.float)
-                return contexts_token_ids_list_batch, contexts_input_masks_list_batch, \
-                          responses_token_ids_list_batch, responses_input_masks_list_batch, labels_batch, logits_batch
-            else:
-                return contexts_token_ids_list_batch, contexts_input_masks_list_batch, \
+            return contexts_token_ids_list_batch, contexts_input_masks_list_batch, \
                           responses_token_ids_list_batch, responses_input_masks_list_batch, labels_batch
