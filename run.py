@@ -42,9 +42,9 @@ def eval_running_model(dataloader, test=False):
             text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch = batch
             batch_size, neg, dim = text_token_ids_list_batch.shape
             with torch.no_grad():
-                logits = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch)
-                labels_batch = labels_batch.view(-1)
-                loss = F.cross_entropy(logits, labels_batch)
+                logits, loss = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch)
+                #labels_batch = labels_batch.view(-1)
+                #loss = F.cross_entropy(logits, labels_batch)
         else:
             context_token_ids_list_batch, context_input_masks_list_batch, \
             response_token_ids_list_batch, response_input_masks_list_batch, labels_batch = batch
@@ -261,7 +261,7 @@ if __name__ == '__main__':
                 
                 if args.architecture == 'cross':
                         text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch = batch
-                        loss = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch)
+                        _, loss = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch)
                     
                 else:
                         context_token_ids_list_batch, context_input_masks_list_batch, \
