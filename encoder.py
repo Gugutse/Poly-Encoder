@@ -55,7 +55,7 @@ class CrossEncoder():
         if labels is not None:
             labels = labels.view(-1)
             loss = self.criterion(prediction, labels)
-            return loss
+            return prediction, loss
         else:
             return prediction
 
