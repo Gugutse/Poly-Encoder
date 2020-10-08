@@ -212,7 +212,8 @@ if __name__ == '__main__':
     elif args.architecture == 'bi':
         model = BiEncoder(bert_config, bert=bert)
     elif args.architecture == 'cross':
-        model = CrossEncoder(bert_config, bert=bert)
+        criterion = torch.nn.CrossEntropyLoss()
+        model = CrossEncoder(model=bert, criterion=criterion)
     else:
         raise Exception('Unknown architecture.')
     model.resize_token_embeddings(len(tokenizer)) 
