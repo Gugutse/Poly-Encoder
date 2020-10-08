@@ -212,7 +212,7 @@ if __name__ == '__main__':
     elif args.architecture == 'bi':
         model = BiEncoder(bert_config, bert=bert)
     elif args.architecture == 'cross':
-        criterion = torch.nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss()
         model = CrossEncoder(model=bert, criterion=criterion)
     else:
         raise Exception('Unknown architecture.')
