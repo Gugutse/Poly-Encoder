@@ -40,9 +40,11 @@ def eval_running_model(dataloader, test=False):
         batch = tuple(t.to(device) for t in batch)
         if args.architecture == 'cross':
             text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch = batch
+            batch_size, neg, dim = text_token_ids_list_batch.shape
             with torch.no_grad():
                 logits = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch)
-                loss = F.cross_entropy(logits, torch.argmax(labels_batch, 1))
+                labels_batch = labels_batch.view(-1)
+                loss = F.cross_entropy(logits, labels_batch)
         else:
             context_token_ids_list_batch, context_input_masks_list_batch, \
             response_token_ids_list_batch, response_input_masks_list_batch, labels_batch = batch
@@ -50,22 +52,25 @@ def eval_running_model(dataloader, test=False):
                 logits = model(context_token_ids_list_batch, context_input_masks_list_batch,
                                               response_token_ids_list_batch, response_input_masks_list_batch)
                 loss = F.cross_entropy(logits, torch.argmax(labels_batch, 1))
+                
+        prediction_prob = torch.exp(torch.log_softmax(logits.double().detach().cpu(), 1))[:, 1]
+        prediction_prob = prediction_prob(neg, -1)
 
-        r2_indices = torch.topk(logits, 2)[1] # R 2 @ 100
-        r5_indices = torch.topk(logits, 5)[1] # R 5 @ 100
-        r10_indices = torch.topk(logits, 10)[1] # R 10 @ 100
-        r1 += (logits.argmax(-1) == 0).sum().item()
+        r2_indices = torch.topk(prediction_prob, 2)[1] # R 2 @ 100
+        r5_indices = torch.topk(prediction_prob, 5)[1] # R 5 @ 100
+        r10_indices = torch.topk(prediction_prob, 10)[1] # R 10 @ 100
+        r1 += (prediction_prob.argmax(-1) == 0).sum().item()
         r2 += ((r2_indices==0).sum(-1)).sum().item()
         r5 += ((r5_indices==0).sum(-1)).sum().item()
         r10 += ((r10_indices==0).sum(-1)).sum().item()
         # mrr
-        logits = logits.data.cpu().numpy()
-        for logit in logits:
-            y_true = np.zeros(len(logit))
-            y_true[0] = 1
-            mrr.append(label_ranking_average_precision_score([y_true], [logit]))
+        #logits = logits.data.cpu().numpy()
+        #for logit in logits:
+            #y_true = np.zeros(len(logit))
+            #y_true[0] = 1
+            #mrr.append(label_ranking_average_precision_score([y_true], [logit]))
         eval_loss += loss.item()
-        nb_eval_examples += labels_batch.size(0)
+        nb_eval_examples += batch_size.size(0)
         nb_eval_steps += 1
     eval_loss = eval_loss / nb_eval_steps
     eval_accuracy = r1 / nb_eval_examples
@@ -77,7 +82,7 @@ def eval_running_model(dataloader, test=False):
             'R2': r2 / nb_eval_examples,
             'R5': r5 / nb_eval_examples,
             'R10': r10 / nb_eval_examples,
-            'MRR': np.mean(mrr),
+            #'MRR': np.mean(mrr),
             'epoch': epoch,
             'global_step': global_step,
         }
