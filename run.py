@@ -183,8 +183,8 @@ if __name__ == '__main__':
     best_eval_loss = float('inf')
     best_test_loss = float('inf')
 
-    #if not os.path.exists(args.output_dir):
-        #os.makedirs(args.output_dir)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
     #shutil.copyfile(os.path.join(args.bert_model, 'vocab.txt'), os.path.join(args.output_dir, 'vocab.txt'))
     #shutil.copyfile(os.path.join(args.bert_model, 'config.json'), os.path.join(args.output_dir, 'config.json'))
     log_wf = open(os.path.join(args.output_dir, 'log.txt'), 'a', encoding='utf-8')
