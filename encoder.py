@@ -42,6 +42,7 @@ class BiEncoder(BertPreTrainedModel):
 
 class CrossEncoder(nn.Module):
     def __init__(self, criterion):
+        super().__init__()
         self.model = BertForSequenceClassification.from_pretrained('bert-base-cased')
         self.criterion = criterion
         
