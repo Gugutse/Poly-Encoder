@@ -42,7 +42,7 @@ def eval_running_model(dataloader, test=False):
             text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch = batch
             batch_size, neg, dim = text_token_ids_list_batch.shape
             with torch.no_grad():
-                logits, loss = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch)
+                logits, loss = model.forward(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch)
                 #labels_batch = labels_batch.view(-1)
                 #loss = F.cross_entropy(logits, labels_batch)
         else:
@@ -54,7 +54,7 @@ def eval_running_model(dataloader, test=False):
                 loss = F.cross_entropy(logits, torch.argmax(labels_batch, 1))
                 
         prediction_prob = torch.exp(torch.log_softmax(logits.double().detach().cpu(), 1))[:, 1]
-        prediction_prob = prediction_prob(neg, -1)
+        prediction_prob = prediction_prob.view(-1, neg)
 
         r2_indices = torch.topk(prediction_prob, 2)[1] # R 2 @ 100
         r5_indices = torch.topk(prediction_prob, 5)[1] # R 5 @ 100
@@ -70,7 +70,7 @@ def eval_running_model(dataloader, test=False):
             #y_true[0] = 1
             #mrr.append(label_ranking_average_precision_score([y_true], [logit]))
         eval_loss += loss.item()
-        nb_eval_examples += batch_size.size(0)
+        nb_eval_examples += batch_size
         nb_eval_steps += 1
     eval_loss = eval_loss / nb_eval_steps
     eval_accuracy = r1 / nb_eval_examples
@@ -148,13 +148,13 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "%d" % args.gpu
     set_seed(args)
 
-    MODEL_CLASSES = {
-        'bert': (BertConfig, BertTokenizer, BertForSequenceClassification),
-    }
-    ConfigClass, TokenizerClass, BertModelClass = MODEL_CLASSES[args.model_type]
+    #MODEL_CLASSES = {
+        #'bert': (BertConfig, BertTokenizer, BertForSequenceClassification),
+    #}
+    #ConfigClass, TokenizerClass, BertModelClass = MODEL_CLASSES[args.model_type]
 
     ## init dataset and bert model
-    tokenizer = TokenizerClass.from_pretrained('bert-base-cased')
+    tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
     context_transform = SelectionJoinTransform(tokenizer=tokenizer, max_len=args.max_contexts_length)
     response_transform = SelectionSequentialTransform(tokenizer=tokenizer, max_len=args.max_response_length)
     concat_transform = SelectionConcatTransform(tokenizer=tokenizer, max_len=args.max_response_length+args.max_contexts_length)
@@ -183,10 +183,10 @@ if __name__ == '__main__':
     best_eval_loss = float('inf')
     best_test_loss = float('inf')
 
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
-    shutil.copyfile(os.path.join(args.bert_model, 'vocab.txt'), os.path.join(args.output_dir, 'vocab.txt'))
-    shutil.copyfile(os.path.join(args.bert_model, 'config.json'), os.path.join(args.output_dir, 'config.json'))
+    #if not os.path.exists(args.output_dir):
+        #os.makedirs(args.output_dir)
+    #shutil.copyfile(os.path.join(args.bert_model, 'vocab.txt'), os.path.join(args.output_dir, 'vocab.txt'))
+    #shutil.copyfile(os.path.join(args.bert_model, 'config.json'), os.path.join(args.output_dir, 'config.json'))
     log_wf = open(os.path.join(args.output_dir, 'log.txt'), 'a', encoding='utf-8')
     print (args, file=log_wf)
 
@@ -196,16 +196,16 @@ if __name__ == '__main__':
     ########################################
     ## build BERT encoder
     ########################################
-    bert_config = ConfigClass.from_json_file(os.path.join(args.bert_model, 'config.json'))
-    if args.use_pretrain and not args.eval:
-        previous_model_file = os.path.join(args.bert_model, "pytorch_model.bin")
-        print('Loading parameters from', previous_model_file)
-        log_wf.write('Loading parameters from %s' % previous_model_file + '\n')
-        model_state_dict = torch.load(previous_model_file, map_location="cpu")
-        bert = BertModelClass.from_pretrained(args.bert_model, state_dict=model_state_dict)
-        del model_state_dict
-    else:
-        bert = BertModelClass.from_pretrained('bert-base-cased')
+    #bert_config = ConfigClass.from_json_file(os.path.join(args.bert_model, 'config.json'))
+    #if args.use_pretrain and not args.eval:
+        #previous_model_file = os.path.join(args.bert_model, "pytorch_model.bin")
+        #print('Loading parameters from', previous_model_file)
+        #log_wf.write('Loading parameters from %s' % previous_model_file + '\n')
+        #model_state_dict = torch.load(previous_model_file, map_location="cpu")
+        #bert = BertModelClass.from_pretrained(args.bert_model, state_dict=model_state_dict)
+        #del model_state_dict
+    #else:
+        #bert = BertModelClass.from_pretrained('bert-base-cased')
 
     if args.architecture == 'poly':
         model = PolyEncoder(bert_config, bert=bert, poly_m=args.poly_m)
@@ -213,10 +213,10 @@ if __name__ == '__main__':
         model = BiEncoder(bert_config, bert=bert)
     elif args.architecture == 'cross':
         criterion = nn.CrossEntropyLoss()
-        model = CrossEncoder(model=bert, criterion=criterion)
+        model = CrossEncoder(criterion=criterion)
     else:
         raise Exception('Unknown architecture.')
-    model.resize_token_embeddings(len(tokenizer)) 
+    model.model.resize_token_embeddings(len(tokenizer)) 
     model.to(device)
     
     if args.eval:
@@ -262,7 +262,7 @@ if __name__ == '__main__':
                 
                 if args.architecture == 'cross':
                         text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch = batch
-                        _, loss = model(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch)
+                        _, loss = model.forward(text_token_ids_list_batch, text_input_masks_list_batch, text_segment_ids_list_batch, labels_batch)
                     
                 else:
                         context_token_ids_list_batch, context_input_masks_list_batch, \
