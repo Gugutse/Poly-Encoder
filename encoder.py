@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import BertPreTrainedModel, BertModel
+from transformers import BertPreTrainedModel, BertModel, BertForSequenceClassification
 
 
 class BiEncoder(BertPreTrainedModel):
@@ -41,8 +41,8 @@ class BiEncoder(BertPreTrainedModel):
 
 
 class CrossEncoder():
-    def __init__(self, model, criterion):
-        self.model = model
+    def __init__(self, criterion):
+        self.model = BertForSequenceClassification.from_pretrained('bert-base-cased')
         self.criterion = criterion
         
     def forward(self, text_input_ids, text_input_masks, text_input_segments, labels=None):
